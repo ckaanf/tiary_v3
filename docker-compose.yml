@@ -1,0 +1,80 @@
+version: '3'
+services:
+  eureka:
+    container_name: tiary-eureka
+    image: ckaanf/tiary-eureka:tiary
+    ports:
+      - "8761:8761"
+    restart: always
+
+  config:
+    container_name: tiary-config
+    image: ckaanf/tiary-config:tiary
+    ports:
+      - "9000:9000"
+    depends_on:
+      - eureka
+    restart: unless-stopped
+
+  server:
+    container_name: tiary-server
+    image: ckaanf/tiary-server:tiary
+    ports:
+      - "8088:8088"
+    depends_on:
+      - eureka
+      - config
+    restart: unless-stopped
+
+  batch:
+    container_name: tiary-batch
+    image: ckaanf/tiary-batch:tiary
+    ports:
+      - "8089:8089"
+    depends_on:
+      - eureka
+      - config
+      - server
+    restart: unless-stopped
+
+  # payment:
+  #   container_name: tiary-payment
+  #   image: your-docker-hub-username/payment-image:tag
+  #   ports:
+  #     - "8889:8889"
+  #   depends_on:
+  #     - eureka
+  #     - config
+  #   restart: unless-stopped
+
+  gateway:
+    container_name: tiary-gateway
+    image: ckaanf/tiary-gateway:tiary
+    depends_on:
+      - eureka
+
+  redis:
+    container_name: tiary-redis
+    image: redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  prometheus:
+    container_name: tiary-prometheus
+    image: prom/prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+
+  grafana:
+    container_name: tiary-grafana
+    image: grafana/grafana
+    user: "$UID:$GID"
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    volumes:
+      - ./monitoring/grafana/data:/var/lib/grafana

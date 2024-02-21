@@ -1,0 +1,57 @@
+server:
+  port: 8090
+
+### Local
+eureka:
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: http://tiaryeurekamgr:tiary1234@localhost:8761/eureka
+
+## Deploy
+#eureka:
+#  client:
+#    register-with-eureka: true
+#    fetch-registry: true
+#    service-url:
+#      defaultZone: http://tiaryeurekamgr:tiary1234@tiary-eureka:8761/eureka
+
+spring:
+  application:
+    name: gateway
+  cloud:
+    gateway:
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins: "http://localhost:5173"
+            allow-credentials: true
+            allowedHeaders: '*'
+            allowedMethods:
+              - PUT
+              - GET
+              - POST
+              - DELETE
+              - OPTIONS
+      routes:
+        - id: server
+          uri: lb://SERVER
+          predicates:
+            - Path=/server/**
+          filters:
+            - RewritePath=/server/(?<segment>.*), /$\{segment}
+        - id: batch
+          uri: lb://BATCH
+          predicates:
+            - Path=/batch/**
+
+        #            - Path=/auth/**
+        #            - Path=/comment/**
+        #            - Path=/article/**
+        #            - Path=/likes/**
+        #            - Path=/category/**
+        #            - Path=/users/**
+        #            - Query=categoryName,.*

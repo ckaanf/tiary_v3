@@ -296,3 +296,7 @@ client/.env
 payment/application-dev.yaml
 payment/application.yaml
 payment/gradle/wrapper/gradle-wrapper.properties
+
+server/src/test/resources/
+
+config/src/main/resources/
