@@ -6,15 +6,13 @@ services:
     ports:
       - "8761:8761"
     restart: always
-
-  config:
-    container_name: tiary-config
-    image: ckaanf/tiary-config:tiary
-    ports:
-      - "9000:9000"
-    depends_on:
-      - eureka
-    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://tiary-eureka:8761/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    build:
+      context: ./eureka    # Eureka 서비스의 Dockerfile이 있는 경로
 
   server:
     container_name: tiary-server
@@ -23,8 +21,15 @@ services:
       - "8088:8088"
     depends_on:
       - eureka
-      - config
+      - mysql
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://tiary-server:8088/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    build:
+      context: ./server    # Server 서비스의 Dockerfile이 있는 경로
 
   batch:
     container_name: tiary-batch
@@ -33,25 +38,31 @@ services:
       - "8089:8089"
     depends_on:
       - eureka
-      - config
       - server
+      - mysql
     restart: unless-stopped
-
-  # payment:
-  #   container_name: tiary-payment
-  #   image: your-docker-hub-username/payment-image:tag
-  #   ports:
-  #     - "8889:8889"
-  #   depends_on:
-  #     - eureka
-  #     - config
-  #   restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://tiary-batch:8089/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    build:
+      context: ./batch    # Batch 서비스의 Dockerfile이 있는 경로
 
   gateway:
     container_name: tiary-gateway
     image: ckaanf/tiary-gateway:tiary
+    ports:
+      - "8090:8090"
     depends_on:
       - eureka
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://tiary-gateway:8090/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    build:
+      context: ./gateway    # Gateway 서비스의 Dockerfile이 있는 경로
 
   redis:
     container_name: tiary-redis
@@ -59,6 +70,31 @@ services:
     ports:
       - "6379:6379"
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  mysql:
+    container_name: tiary-mysql
+    image: mysql:latest
+    environment:
+      MYSQL_ROOT_PASSWORD: 1234
+      MYSQL_DATABASE: tiary
+      MYSQL_USER: ckaanf
+      MYSQL_PASSWORD: 1234
+    ports:
+      - "3307:3306"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "tiary-mysql", "-u", "ckaanf", "-p1234"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    # command: --init-file /docker-entrypoint-initdb.d/init.sql
+    # volumes:
+    #   - ./mysql:/docker-entrypoint-initdb.d
 
   prometheus:
     container_name: tiary-prometheus
@@ -67,6 +103,11 @@ services:
       - "9090:9090"
     volumes:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://tiary-prometheus:9090/-/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   grafana:
     container_name: tiary-grafana
@@ -78,3 +119,8 @@ services:
       - prometheus
     volumes:
       - ./monitoring/grafana/data:/var/lib/grafana
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://tiary-grafana:3000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
