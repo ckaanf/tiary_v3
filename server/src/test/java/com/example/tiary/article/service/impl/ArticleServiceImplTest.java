@@ -51,13 +51,13 @@ class ArticleServiceImplTest {
 
 		when(articleRepository.findById(anyLong())).thenReturn(Optional.of(article));
 
-		when(userService.getUserById(anyLong())).thenReturn(testUser);
+		when(userService.verifyingUsers(anyLong())).thenReturn(testUser);
 
-		String result = articleService.deleteArticle(articleIdList, testUser.getId());
+		boolean result = articleService.deleteArticle(articleIdList, testUser.getId());
 
-		assertEquals("삭제 완료", result);
+		assertEquals(true, result);
 
 		verify(articleRepository, times(articleIdList.length)).findById(anyLong());
-		verify(userService, times(1)).getUserById(anyLong());
+		verify(userService, times(1)).verifyingUsers(anyLong());
 	}
 }

@@ -8,11 +8,12 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.example.tiary.article.entity.Article;
+import com.example.tiary.article.repository.querydsl.ArticleRepositoryCustom;
 import com.example.tiary.myPage.dto.response.ResponseMyArticleDto;
 
 import java.util.List;
 
-public interface ArticleRepository extends JpaRepository<Article, Long> {
+public interface ArticleRepository extends JpaRepository<Article, Long>, ArticleRepositoryCustom {
 
 	Page<Article> findAllByCategory_CategoryName(String categoryName, Pageable pageable);
 

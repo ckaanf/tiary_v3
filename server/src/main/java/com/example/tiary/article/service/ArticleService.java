@@ -14,6 +14,10 @@ import com.example.tiary.article.entity.Article;
 import com.example.tiary.global.pagination.PageResponseArticleDto;
 
 public interface ArticleService {
+	// 게시물 검증
+	@Transactional(readOnly = true)
+	Article verifyingArticle(Long articleId);
+
 	// 게시물 조회
 	List<ResponseArticleDto> readArticleList();
 
@@ -36,7 +40,9 @@ public interface ArticleService {
 	Article updateArticle(Long usersId, Long articleId, RequestArticleDto requestArticleDto,  List<String> storeNameList) throws
 		IOException;
 
-	String deleteArticle(Long articleId, Long usersId);
+	boolean deleteArticle(Long[] articleIdList, Long usersId);
+
+	boolean deleteArticle(Long articleId, Long usersId);
 
 	@Transactional
 	int updateView(Long articleId);

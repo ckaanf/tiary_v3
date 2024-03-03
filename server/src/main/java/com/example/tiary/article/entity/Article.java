@@ -25,13 +25,13 @@ import lombok.ToString;
 
 @AllArgsConstructor
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@ToString
 @Getter
 @Entity
 public class Article extends AuditingFields {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
+
 	private String title;
 
 	@Column(length = 65554)
@@ -49,7 +49,6 @@ public class Article extends AuditingFields {
 
 	@JsonIgnore
 	@OneToMany(mappedBy = "article")
-	@ToString.Exclude
 	private List<ArticleHashtag> articleHashtags = new ArrayList<>();
 
 	public static Article of(Long id, String title, String content, int view, Category category, Users users,

@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -63,24 +64,6 @@ class ArticleControllerTest {
 	@MockBean
 	ArticleLikesService articleLikesService;
 
-	// @BeforeEach
-	// @WithMockCustomUser
-	// @Order(1)
-	// void setArticle(){
-	// 	UserDto userDto = (UserDto)SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-	// 	Users users = userDto.getUsers();
-	// 	Article article1 = new Article(
-	// 		1L,
-	// 		"title",
-	// 		"content",
-	// 		0,
-	// 		new Category(1L,"001","test"),
-	// 		users,
-	// 		null
-	// 	);
-	// 	System.out.println(article1);
-	// 	articleRepository.save(article1);
-	// }
 
 	private String jwtToken;
 
@@ -133,59 +116,28 @@ class ArticleControllerTest {
 	@WithMockCustomUser
 	void deleteArticle() throws Exception {
 		// Given
-		Long articleIdToDelete = 1L;
-		Users currentUser = new Users(
-			1L,
-			"test",
-			"test@gmail.com",
-			Role.USER,
-			null,
-			UserStatus.ACTIVE
-		);
+		Long[] articleList = new Long[]{1L};
+		String requestArticleDeleteDto =
+			"""
+    			{ 
+    				"articleIdList": [1]
+    				}
+				""";
 
-		Article article = new Article(
-			articleIdToDelete,
-			"Test Title",
-			"Test Content",
-			0,
-			new Category(1L, "001", "TestCategory"),
-			currentUser,
-			null
-		);
 
 		// When
-		when(articleRepository.findById(articleIdToDelete)).thenReturn(Optional.of(article));
-		doThrow(new RuntimeException("삭제 실패")).when(articleRepository).delete(article);
-		when(articleService.deleteArticle(articleIdToDelete, currentUser.getId())).thenReturn("삭제 완료");
+		when(articleService.deleteArticle(articleList, eq(anyLong()))).thenReturn(true);
 
 		// Then
-		mvc.perform(delete("/article/{article-id}", articleIdToDelete)
+		mvc.perform(delete("/article", requestArticleDeleteDto)
 				.contentType(MediaType.APPLICATION_JSON)
-				.header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
+				.content(requestArticleDeleteDto.toString())
 				.with(csrf()))
 			.andExpect(status().isResetContent())
-			.andExpect(content().string("삭제 완료"))
 			.andDo(print());
 
 		// Verify
-		verify(articleService, times(1)).deleteArticle(articleIdToDelete, currentUser.getId());
-	}
-
-	@DisplayName("게시물 다중 삭제 테스트")
-	@Test
-	@WithMockCustomUser
-	void deleteArticleMultiple() throws Exception {
-
-		Long[] list = new Long[] {1L, 2L};
-
-		Map<String, Long[]> articleIdList = new HashMap<>();
-
-		articleIdList.put("articleIdList", list);
-
-		mvc.perform(delete("/article").contentType(MediaType.APPLICATION_JSON)
-				.content(Arrays.toString(articleIdList.get("articleIdList"))))
-			.andExpect(status().isResetContent())
-			.andDo(print());
+		verify(articleService, times(1)).deleteArticle(articleList, 1L);
 	}
 
 	@DisplayName("게시물 다중 삭제 테스트")
@@ -195,14 +147,14 @@ class ArticleControllerTest {
 		// 전체 삭제는 articleId를 리스트로 받아서
 		// 개별 삭제를 for문으로 돌게 짜보자
 
-		Long[] list = new Long[] {1L, 2L};
+		Long[] articleList = new Long[] {1L, 2L};
 		String requestArticleDeleteDto =
 			"""
     			{ 
     				"articleIdList": [1,2]
     				}
 				""";
-		when(articleService.deleteArticle(list, eq(anyLong()))).thenReturn("삭제 완료");
+		when(articleService.deleteArticle(articleList, eq(anyLong()))).thenReturn(true);
 
 
 		mvc.perform(delete("/article")

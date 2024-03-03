@@ -8,7 +8,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -24,7 +23,6 @@ import com.example.tiary.article.entity.ArticleImage;
 import com.example.tiary.article.repository.ArticleHashtagRepository;
 import com.example.tiary.article.repository.ArticleImageRepository;
 import com.example.tiary.article.repository.ArticleRepository;
-import com.example.tiary.article.service.ArticleLikesService;
 import com.example.tiary.article.service.ArticleService;
 import com.example.tiary.article.service.HashtagService;
 import com.example.tiary.category.entity.Category;
@@ -36,7 +34,7 @@ import com.example.tiary.global.pagination.PageResponseArticleDto;
 import com.example.tiary.global.pagination.PaginationService;
 import com.example.tiary.global.s3.service.S3UploadService;
 import com.example.tiary.users.entity.Users;
-import com.example.tiary.users.repository.UsersRepository;
+import com.example.tiary.users.service.UserService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -46,16 +44,22 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 public class ArticleServiceImpl implements ArticleService {
 	private final ArticleRepository articleRepository;
-	private final UsersRepository usersRepository;
 	private final ArticleHashtagRepository articleHashtagRepository;
 	private final ArticleImageRepository articleImageRepository;
+
+	private final UserService userService;
 	private final HashtagService hashtagService;
 	private final CategoryService categoryService;
 	private final S3UploadService s3UploadService;
-	private final ArticleLikesService articleLikesService;
 	private final BatchService batchService;
 	private final PaginationService paginationService;
 
+	// 게시물 검증
+	@Override
+	public Article verifyingArticle(Long articleId){
+		return articleRepository.findById(articleId)
+			.orElseThrow(() -> new BusinessLogicException(ExceptionCode.ARTICLE_NOT_FOUND));
+	}
 	// 게시물 조회
 	@Transactional(readOnly = true)
 	@Override
@@ -74,16 +78,14 @@ public class ArticleServiceImpl implements ArticleService {
 			.distinct()
 			.limit(6)
 			.mapToObj(index -> getResponseArticleDtoWithImages(articles.get(index)))
-			.collect(Collectors.toList());
+			.toList();
 	}
 
 	//게시물 단건 조회
 	@Transactional
 	@Override
 	public ResponseArticleDto readArticle(Long articleId) {
-
-		Article article = articleRepository.findById(articleId)
-			.orElseThrow(() -> new BusinessLogicException(ExceptionCode.ARTICLE_NOT_FOUND));
+		Article article = verifyingArticle(articleId);
 		updateView(article.getId());
 		return ResponseArticleDto.from(article);
 	}
@@ -92,13 +94,12 @@ public class ArticleServiceImpl implements ArticleService {
 	@Transactional(readOnly = true)
 	@Override
 	public List<ResponseArticleDto> readArticleFromHashtag(String hashtag) {
-		List<ArticleHashtag> articleHashtag = articleHashtagRepository.findAllByHashtag_HashtagName(hashtag);
+		List<ArticleHashtag> articleHashtagList = articleHashtagRepository.findAllByHashtag_HashtagName(hashtag);
 		List<ResponseArticleDto> responseArticleDtoList = new ArrayList<>();
 
-		for (ArticleHashtag a : articleHashtag) {
-			responseArticleDtoList.add(ResponseArticleDto.from(a.getArticle()));
+		for (ArticleHashtag articleHashtag : articleHashtagList) {
+			responseArticleDtoList.add(ResponseArticleDto.from(articleHashtag.getArticle()));
 		}
-
 		return responseArticleDtoList;
 	}
 
@@ -148,9 +149,9 @@ public class ArticleServiceImpl implements ArticleService {
 	@Override
 	public Article createArticle(Long usersId, RequestArticleDto requestArticleDto, List<String> storeNameList) throws
 		IOException {
-		Users user = usersRepository.findById(usersId)
-			.orElseThrow(() -> new BusinessLogicException(ExceptionCode.USER_NOT_FOUND));
+		Users user = userService.verifyingUsers(usersId);
 		Category category = categoryService.readCategory(requestArticleDto.getCategoryCode());
+
 		Article article = articleRepository.save(requestArticleDto.toEntity(category, user));
 
 		if (storeNameList != null) {
@@ -169,10 +170,8 @@ public class ArticleServiceImpl implements ArticleService {
 	@Transactional
 	@Override
 	public Article updateArticle(Long usersId, Long articleId, RequestArticleDto requestArticleDto, List<String> storeNameList ) throws IOException {
-		Users user = usersRepository.findById(usersId)
-			.orElseThrow(() -> new BusinessLogicException(ExceptionCode.USER_NOT_FOUND));
-		Article article = articleRepository.findById(articleId)
-			.orElseThrow(() -> new BusinessLogicException(ExceptionCode.ARTICLE_NOT_FOUND));
+		Users user = userService.verifyingUsers(usersId);
+		Article article = verifyingArticle(articleId);
 
 		if (!Objects.equals(user.getId(), article.getUsers().getId())) {
 			throw new BusinessLogicException(ExceptionCode.UNAUTHORIZED);
@@ -199,22 +198,34 @@ public class ArticleServiceImpl implements ArticleService {
 		return articleRepository.save(article);
 	}
 
+	@Transactional
+	@Override
+	public boolean deleteArticle(Long[] articleIdList, Long usersId) {
+		Users users = userService.verifyingUsers(usersId);
+		for(Long i : articleIdList){
+			deleteArticleImpl(i, users.getId());
+		}
+		return true;
+	}
+
 	//게시물 삭제
 	@Transactional
 	@Override
-	public String deleteArticle(Long articleId, Long usersId) {
-		Users users = usersRepository.findById(usersId)
-			.orElseThrow(() -> new BusinessLogicException(ExceptionCode.USER_NOT_FOUND));
+	public boolean deleteArticle(Long articleId, Long usersId) {
+		Users users = userService.verifyingUsers(usersId);
+		deleteArticleImpl(articleId,users.getId());
+		return true;
+	}
+
+	private void deleteArticleImpl(Long articleId, Long usersId){
 		Article article = articleRepository.findById(articleId)
 			.orElseThrow(() -> new BusinessLogicException(ExceptionCode.ARTICLE_ALREADY_DELETE));
-		if(!Objects.equals(article.getUsers().getId(), users.getId())){
+		if(!Objects.equals(article.getUsers().getId(), usersId)){
 			throw new BusinessLogicException(ExceptionCode.UNAUTHORIZED);
 		}
 		articleImageRepository.findAllByArticleId(articleId)
 			.forEach(img -> s3UploadService.deleteImage(img.getImgUrl()));
-		articleLikesService.deleteLikes(articleId);
 		articleRepository.deleteArticleByIdAndUsersId(articleId,usersId);
-		return "삭제 완료";
 	}
 
 	@Override

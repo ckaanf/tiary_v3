@@ -22,7 +22,6 @@ import lombok.extern.slf4j.Slf4j;
 @Configuration
 @Slf4j
 public class JpaConfig {
-	private final HttpSession session;
 	@Bean
 	public AuditorAware<String> auditorAware() {
 		return () -> Optional.ofNullable(SecurityContextHolder.getContext())

@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.example.tiary.article.dto.request.RequestArticleDeleteDto;
 import com.example.tiary.article.dto.request.RequestArticleDto;
 import com.example.tiary.article.service.ArticleLikesService;
 import com.example.tiary.article.service.ArticleService;
@@ -76,11 +77,11 @@ public class ArticleController {
     }
 
     //게시물 삭제
-    @DeleteMapping("/{article-id}")
-    public ResponseEntity deleteArticle(@PathVariable("article-id") Long articleId,
-                                        @AuthenticationPrincipal UserDto users) {
-
-        return new ResponseEntity<>(articleService.deleteArticle(articleId, users.getUsers().getId()), HttpStatus.RESET_CONTENT);
+    @DeleteMapping
+    public ResponseEntity deleteArticle(@RequestBody RequestArticleDeleteDto requestArticleDeleteDto,
+        @AuthenticationPrincipal UserDto users) {
+        return new ResponseEntity(articleService.deleteArticle(requestArticleDeleteDto.getArticleIdList(), users.getUsers().getId()),
+            HttpStatus.RESET_CONTENT);
     }
 
     @GetMapping("/{article-id}/likes")
